@@ -9,7 +9,6 @@ from airflow.decorators import dag, task
 from pendulum import datetime
 from airflow.providers.amazon.aws.operators.s3 import S3DeleteObjectsOperator
 from airflow.providers.http.operators.http import SimpleHttpOperator
-from airflow.models.baseoperator import chain
 import os
 import json
 import requests
