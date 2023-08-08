@@ -19,7 +19,7 @@ from airflow.models.param import Param
     },
     tags=[".is_teardown()", "setup/teardown", "toy"],
 )
-def setup_teardown_nesting():
+def toy_setup_teardown_nesting():
     @task
     def outer_setup():
         return "Setting up the big cluster!"
@@ -78,4 +78,4 @@ def setup_teardown_nesting():
     outer_setup_obj >> outer_worker_3() >> outer_teardown_obj
 
 
-setup_teardown_nesting()
+toy_setup_teardown_nesting()

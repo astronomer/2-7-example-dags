@@ -28,7 +28,7 @@ from airflow.models.param import Param
     },
     tags=[".is_teardown()", "setup/teardown", "@task_group", "toy"],
 )
-def toy_setup_teardown_failures():
+def toy_setup_teardown_task_group_and_failures():
     @task_group
     def work_in_the_cluster():
         @task
@@ -123,4 +123,4 @@ def toy_setup_teardown_failures():
     )
 
 
-toy_setup_teardown_failures()
+toy_setup_teardown_task_group_and_failures()
