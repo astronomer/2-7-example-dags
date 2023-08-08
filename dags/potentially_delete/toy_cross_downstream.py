@@ -14,9 +14,9 @@ from airflow.operators.empty import EmptyOperator
     start_date=datetime(2023, 7, 1),
     schedule=None,
     catchup=False,
-    tags=["cross_downstream()", "dependency_functions"],
+    tags=["cross_downstream()", "dependency_functions", "toy"],
 )
-def cross_downstream():
+def toy_cross_downstream():
     t1_cross_downstream = EmptyOperator(task_id="t1_cross_downstream")
     t2_cross_downstream = EmptyOperator(task_id="t2_cross_downstream")
     t3_cross_downstream = EmptyOperator(task_id="t3_cross_downstream")
@@ -32,5 +32,5 @@ def cross_downstream():
         [t3_cross_downstream, t4_cross_downstream, t5_cross_downstream],
     )
 
-
-cross_downstream()
+# broken as of nightly 2023-07-28
+# toy_cross_downstream()

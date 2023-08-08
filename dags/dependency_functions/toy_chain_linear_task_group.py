@@ -13,12 +13,12 @@ from airflow.utils.task_group import TaskGroup
 
 
 @dag(
-    start_date=datetime(2023, 7, 1),
+    start_date=datetime(2023, 8, 1),
     schedule=None,
     catchup=False,
-    tags=["TaskGroup", "@task_group", "chain_linear()", "dependency_functions"],
+    tags=["TaskGroup", "@task_group", "chain_linear()", "dependency_functions", "toy"],
 )
-def chain_linear_task_group():
+def toy_chain_linear_task_group():
     t1_traditional = EmptyOperator(task_id="t1_traditional")
     t2_traditional = EmptyOperator(task_id="t2_traditional")
     t3_traditional = EmptyOperator(task_id="t3_traditional")
@@ -95,8 +95,8 @@ def chain_linear_task_group():
         [t2_traditional, t2_TF_object],
         [tg1_traditional, tg1_TF_object],
         [tg2_traditional, tg2_TF_object, tg3_traditional],
-        [t3_traditional, t4_traditional, t5_traditional, t6_traditional]
+        [t3_traditional, t4_traditional, t5_traditional, t6_traditional],
     )
 
 
-chain_linear_task_group()
+toy_chain_linear_task_group()

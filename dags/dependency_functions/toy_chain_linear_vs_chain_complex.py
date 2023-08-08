@@ -17,7 +17,7 @@ from airflow.operators.empty import EmptyOperator
     catchup=False,
     tags=["chain()", "chain_linear()", "dependency_functions"],
 )
-def chain_linear_vs_chain_complex():
+def toy_chain_linear_vs_chain_complex():
     start_chain_linear = EmptyOperator(task_id="start_chain_linear")
     end_chain_linear = EmptyOperator(task_id="end_chain_linear")
     start_chain = EmptyOperator(task_id="start_chain")
@@ -70,4 +70,4 @@ def chain_linear_vs_chain_complex():
     end_chain_linear >> start_chain
 
 
-chain_linear_vs_chain_complex()
+toy_chain_linear_vs_chain_complex()

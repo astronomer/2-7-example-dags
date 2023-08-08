@@ -15,9 +15,9 @@ from airflow.operators.empty import EmptyOperator
     start_date=datetime(2023, 7, 1),
     schedule=None,
     catchup=False,
-    tags=["chain()", "chain_linear()", "dependency_functions"],
+    tags=["chain()", "chain_linear()", "dependency_functions", "toy"],
 )
-def chain_linear_vs_chain_simple():
+def toy_chain_linear_vs_chain_simple():
     start_chain_linear = EmptyOperator(task_id="start_chain_linear")
     end_chain_linear = EmptyOperator(task_id="end_chain_linear")
     start_chain = EmptyOperator(task_id="start_chain")
@@ -38,4 +38,4 @@ def chain_linear_vs_chain_simple():
     end_chain_linear >> start_chain
 
 
-chain_linear_vs_chain_simple()
+toy_chain_linear_vs_chain_simple()

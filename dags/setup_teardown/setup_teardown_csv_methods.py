@@ -1,14 +1,14 @@
 """
-## This is a helper DAG
+## Use `.as_teardown()` in a simple local example to enable setup/teardown functionality
 
-This DAG shows the pipeline used in the basic setup/teardown example without
-having setup/teardown in place.
+DAG that uses setup/teardown to prepare a CSV file to write to and then showcases the
+behavior in case faulty data is fetched.
 """
 
 from airflow.decorators import dag, task
 from airflow.models.baseoperator import chain
-from airflow.models.param import Param
 from pendulum import datetime
+from airflow.models.param import Param
 import os
 import csv
 import time
@@ -31,9 +31,9 @@ def get_params_helper(**context):
         "cols": ["id", "name", "age"],
         "fetch_bad_data": Param(False, type="boolean"),
     },
-    tags=["helper"],
+    tags=[".is_teardown()", "setup/teardown"],
 )
-def no_setup_teardown():
+def setup_teardown_csv_methods():
     @task
     def create_csv(**context):
         folder, filename, cols = get_params_helper(**context)
@@ -98,7 +98,24 @@ def no_setup_teardown():
     get_average_age_obj = get_average_age()
     delete_csv_obj = delete_csv()
 
-    chain(create_csv_obj, write_to_csv_obj, get_average_age_obj, delete_csv_obj)
+    chain(
+        create_csv_obj,
+        write_to_csv_obj,
+        get_average_age_obj,
+        delete_csv_obj.as_teardown(setups=create_csv_obj),
+    )
+
+    # you can also use .as_setup() and .as_teardown() individually
+    """chain(
+        create_csv_obj.as_setup(),
+        write_to_csv_obj,
+        get_average_age_obj,
+        delete_csv_obj.as_teardown(),
+    )"""
+
+    # if no `setups` argument is specified in .as_teardown() the dependency
+    # between the setup and teardown task has to be added manually
+    # create_csv_obj >> delete_csv_obj
 
 
-no_setup_teardown()
+setup_teardown_csv_methods()

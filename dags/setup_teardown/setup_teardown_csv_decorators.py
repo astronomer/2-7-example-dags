@@ -33,7 +33,7 @@ def get_params_helper(**context):
     },
     tags=["@setup", "@teardown", "setup/teardown"],
 )
-def setup_teardown_basic_decorators():
+def setup_teardown_csv_decorators():
     @setup
     def create_csv(**context):
         folder, filename, cols = get_params_helper(**context)
@@ -110,4 +110,4 @@ def setup_teardown_basic_decorators():
     create_csv_obj >> delete_csv_obj
 
 
-setup_teardown_basic_decorators()
+setup_teardown_csv_decorators()

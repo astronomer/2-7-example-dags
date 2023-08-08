@@ -36,7 +36,7 @@ def get_params_helper(**context):
     },
     tags=["@setup", "@teardown", "setup/teardown"],
 )
-def setup_teardown_complex_decorators():
+def setup_teardown_complex_sqlite_decorators():
     @task
     def create_perm_db(**context):
         folder, db_name_temp, db_name_perm = get_params_helper(**context)
@@ -53,7 +53,7 @@ def setup_teardown_complex_decorators():
         c.execute(
             """
                 CREATE TABLE IF NOT EXISTS most_rated
-                (series text, average_rating integer, number_of_ratings integer)
+                (series text PRIMARY KEY, average_rating integer, number_of_ratings integer)
                 """
         )
         conn.commit()
@@ -164,12 +164,15 @@ def setup_teardown_complex_decorators():
             c_perm = conn_perm.cursor()
 
             c_temp.execute(
-                "SELECT series, AVG(rating), COUNT(rating) FROM ratings GROUP BY series"
+                """SELECT series, AVG(rating), COUNT(rating) 
+                FROM ratings 
+                GROUP BY series 
+                ORDER BY COUNT(rating) DESC LIMIT 1"""
             )
             ratings_data = c_temp.fetchall()
 
             c_perm.executemany(
-                "INSERT INTO most_rated (series, average_rating, number_of_ratings) VALUES (?,?,?)",
+                "INSERT OR REPLACE INTO most_rated (series, average_rating, number_of_ratings) VALUES (?,?,?)",
                 ratings_data,
             )
 
@@ -207,11 +210,14 @@ def setup_teardown_complex_decorators():
 
         empty_series_table_obj = empty_series_table()
 
+        tables_empty = EmptyOperator(task_id="tables_empty")
+
         chain(
             insert_ratings_data_obj,
             update_star_trek_series_obj,
             insert_most_rated_series_obj,
             [empty_ratings_table_obj, empty_series_table_obj],
+            tables_empty,
         )
         insert_ratings_data_obj >> [empty_ratings_table_obj, empty_series_table_obj]
 
@@ -236,16 +242,25 @@ def setup_teardown_complex_decorators():
 
     delete_temp_db_obj = delete_temp_db()
 
+    @task
+    def query_perm(**context):
+        folder, db_name_temp, db_name_perm = get_params_helper(**context)
+        conn = sqlite3.connect(f"{folder}/{db_name_perm}.db")
+        c = conn.cursor()
+        r = c.execute("SELECT * FROM most_rated")
+        print(r.fetchall())
+
     chain(
         create_temp_db_obj,
         [create_table_ratings_obj, create_table_star_trek_series_obj],
         data_transformation_tg_obj,
         delete_temp_tables_obj,
         delete_temp_db_obj,
+        query_perm(),
     )
     create_table_most_rated_obj >> data_transformation_tg_obj
 
     create_temp_db_obj >> delete_temp_db_obj
 
 
-setup_teardown_complex_decorators()
+setup_teardown_complex_sqlite_decorators()
