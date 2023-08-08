@@ -1,8 +1,13 @@
 """
-## Use `@setup` and `@teardown` in a simple local example to enable setup/teardown functionality
+## Use setup/teardown in a complex example with three nested setup/teardown groupings
 
-DAG that uses setup/teardown to prepare a CSV file to write to and then showcases the
-behavior in case faulty data is fetched.
+DAG that creates a permanent and temporary SQLite database, fetches data, 
+inserts it and then cleans up after itself. Also shows that multiple setup/teardown tasks can be in a grouping.
+
+Setup/teardown groupings:
+1. Outer: Create temporary database -> delete temporary database (1 setup, 1 teardown)
+2. Middle: Create tables in the temporary database -> delete tables in temporary database (2 setup, 1 teardown)
+3. Inner: Insert data into tables in the temporary database -> empty tables in the temporary database (1 setup, 2 teardown)
 """
 
 from airflow.decorators import dag, task_group, task, setup, teardown
@@ -12,8 +17,6 @@ from airflow.models.param import Param
 from airflow.operators.empty import EmptyOperator
 import sqlite3
 import os
-import csv
-import time
 
 
 def get_params_helper(**context):
@@ -31,8 +34,16 @@ def get_params_helper(**context):
         "folder": "include",
         "db_name_temp": "startrek_temp",
         "db_name_perm": "startrek_perm",
-        "data_format_problem": Param(False, type="boolean"),
-        "database_problem": Param(False, type="boolean"),
+        "fail_fetch_data": Param(
+            False,
+            type="boolean",
+            description="This param simulates a failure in fetching data, like an API being down in the outer setup/teardown grouping.",
+        ),
+        "fail_insert_most_rated_series": Param(
+            False,
+            type="boolean",
+            description="This param simulates a failure in inserting data into the most_rated table in the inner setup/teardown grouping.",
+        ),
     },
     tags=["@setup", "@teardown", "setup/teardown"],
 )
@@ -106,26 +117,21 @@ def setup_teardown_complex_sqlite_decorators():
     def data_transformation():
         @task
         def fetch_data(**context):
-            data_format_problem = context["params"]["data_format_problem"]
-            if data_format_problem:
-                return [
-                    ["user1", "TNG", "5 Stars!"],
-                    ["user2", "TOS", 5],
-                    ["user3", "TOS", 5],
-                ]
-            else:
-                return [
-                    ["user1", "TNG", 5],
-                    ["user1", "DS9", 5],
-                    ["user1", "VOY", 5],
-                    ["user2", "TOS", 5],
-                    ["user2", "TNG", 5],
-                    ["user2", "ENT", 5],
-                    ["user3", "TOS", 5],
-                    ["user3", "TNG", 5],
-                    ["user3", "DS9", 5],
-                    ["user3", "VOY", 5],
-                ]
+            fail_fetch_data = context["params"]["fail_fetch_data"]
+            if fail_fetch_data:
+                raise Exception("Oh no! The API to get Star Trek ratings is down!")
+            return [
+                ["user1", "TNG", 5],
+                ["user1", "DS9", 5],
+                ["user1", "VOY", 5],
+                ["user2", "TOS", 5],
+                ["user2", "TNG", 5],
+                ["user2", "ENT", 5],
+                ["user3", "TOS", 5],
+                ["user3", "TNG", 5],
+                ["user3", "DS9", 5],
+                ["user3", "VOY", 5],
+            ]
 
         @setup
         def insert_ratings_data(ratings_data, **context):
@@ -171,6 +177,12 @@ def setup_teardown_complex_sqlite_decorators():
             )
             ratings_data = c_temp.fetchall()
 
+            fail_insert_most_rated_series = context["params"][
+                "fail_insert_most_rated_series"
+            ]
+            if fail_insert_most_rated_series:
+                raise Exception("Oh no! The data could not be inserted into the table!")
+
             c_perm.executemany(
                 "INSERT OR REPLACE INTO most_rated (series, average_rating, number_of_ratings) VALUES (?,?,?)",
                 ratings_data,
@@ -212,6 +224,7 @@ def setup_teardown_complex_sqlite_decorators():
 
         tables_empty = EmptyOperator(task_id="tables_empty")
 
+        # setting dependencies within the task group
         chain(
             insert_ratings_data_obj,
             update_star_trek_series_obj,
@@ -219,6 +232,9 @@ def setup_teardown_complex_sqlite_decorators():
             [empty_ratings_table_obj, empty_series_table_obj],
             tables_empty,
         )
+
+        # setting dependencies between the setup task and its two teardown tasks
+        # creating the inner setup/teardown pairing
         insert_ratings_data_obj >> [empty_ratings_table_obj, empty_series_table_obj]
 
     data_transformation_tg_obj = data_transformation()
@@ -247,9 +263,15 @@ def setup_teardown_complex_sqlite_decorators():
         folder, db_name_temp, db_name_perm = get_params_helper(**context)
         conn = sqlite3.connect(f"{folder}/{db_name_perm}.db")
         c = conn.cursor()
-        r = c.execute("SELECT * FROM most_rated")
-        print(r.fetchall())
+        r = c.execute(
+            "SELECT AVG(average_rating), SUM(number_of_ratings) FROM most_rated"
+        )
+        re = r.fetchall()
+        print(
+            f"The average rating of all Star Trek series was {round(re[0][0])}/5 after {re[0][1]} ratings were cast!"
+        )
 
+    # setting dependencies outside the task group
     chain(
         create_temp_db_obj,
         [create_table_ratings_obj, create_table_star_trek_series_obj],
@@ -260,6 +282,13 @@ def setup_teardown_complex_sqlite_decorators():
     )
     create_table_most_rated_obj >> data_transformation_tg_obj
 
+    [
+        create_table_ratings_obj,
+        create_table_star_trek_series_obj,
+    ] >> delete_temp_tables_obj
+
+    # setting dependencies between the three setup task and its teardown task
+    # creating the outer setup/teardown grouping
     create_temp_db_obj >> delete_temp_db_obj
 
 
