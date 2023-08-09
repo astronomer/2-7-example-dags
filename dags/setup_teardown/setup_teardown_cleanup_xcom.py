@@ -27,7 +27,7 @@ def draw_cards(deck_id, number):
     schedule=None,
     catchup=False,
     render_template_as_native_obj=True,
-    tags=[".as_teardown()", "setup/teardown"],
+    tags=[".as_teardown()", "setup/teardown", "deferrable"],
 )
 def setup_teardown_cleanup_xcom():
     shuffle_cards = SimpleHttpOperator(

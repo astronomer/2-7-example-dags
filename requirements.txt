@@ -2,3 +2,5 @@
 astronomer-providers==1.17.3
 apache-airflow-providers-amazon==8.4.0
 apache-airflow-providers-http==4.5.0
+apache-airflow-providers-apprise==1.0.1
+apprise==1.4.5
