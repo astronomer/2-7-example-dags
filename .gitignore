@@ -6,3 +6,4 @@ __pycache__/
 astro
 *DS_Store
 include/startrek_perm.db
+screenshot_dags
