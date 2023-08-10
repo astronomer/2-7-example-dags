@@ -5,3 +5,4 @@ airflow_settings.yaml
 __pycache__/
 astro
 *DS_Store
+include/startrek_perm.db

@@ -8,6 +8,13 @@ Setup/teardown groupings:
 1. Outer: Create temporary database -> delete temporary database (1 setup, 1 teardown)
 2. Middle: Create tables in the temporary database -> delete tables in temporary database (2 setup, 1 teardown)
 3. Inner: Insert data into tables in the temporary database -> empty tables in the temporary database (1 setup, 2 teardown)
+
+This DAG needs the following SQLite connection with the id `sqlite_default`:
+
+AIRFLOW_CONN_SQLITE_DEFAULT='{
+    "conn_type": "sqlite",
+    "host": "include/startrek_temp.db"
+}'
 """
 
 from airflow.decorators import dag, task_group, task, setup, teardown
@@ -15,15 +22,12 @@ from airflow.models.baseoperator import chain
 from pendulum import datetime
 from airflow.models.param import Param
 from airflow.operators.empty import EmptyOperator
+from airflow.providers.common.sql.operators.sql import SQLColumnCheckOperator
 import sqlite3
 import os
 
-
-def get_params_helper(**context):
-    folder = context["params"]["folder"]
-    db_name_temp = context["params"]["db_name_temp"]
-    db_name_perm = context["params"]["db_name_perm"]
-    return folder, db_name_temp, db_name_perm
+STARTREK_TEMP_DB_PATH = "include/startrek_temp.db"
+STARTREK_PERM_DB_PATH = "include/startrek_perm.db"
 
 
 @dag(
@@ -31,60 +35,58 @@ def get_params_helper(**context):
     schedule=None,
     catchup=False,
     params={
-        "folder": "include",
-        "db_name_temp": "startrek_temp",
-        "db_name_perm": "startrek_perm",
         "fail_fetch_data": Param(
             False,
             type="boolean",
-            description="This param simulates a failure in fetching data, like an API being down in the outer setup/teardown grouping.",
+            description="This param simulates a failure in fetching data, like an API being down in the middle setup/teardown grouping.",
         ),
-        "fail_insert_most_rated_series": Param(
+        "fetch_bad_data": Param(
             False,
             type="boolean",
-            description="This param simulates a failure in inserting data into the most_rated table in the inner setup/teardown grouping.",
+            description="This param simulates fetching bad quality data.",
+        ),
+        "fail_insert_into_perm_table": Param(
+            False,
+            type="boolean",
+            description="This param simulates a failure in inserting data into the permanent ratings table in the inner setup/teardown grouping.",
         ),
     },
     tags=["@setup", "@teardown", "setup/teardown"],
 )
 def setup_teardown_complex_sqlite_decorators():
     @task
-    def create_perm_db(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        conn = sqlite3.connect(f"{folder}/{db_name_perm}.db")
+    def create_perm_db():
+        conn = sqlite3.connect(STARTREK_PERM_DB_PATH)
         conn.close()
 
     create_perm_db_obj = create_perm_db()
 
     @task
-    def create_table_most_rated(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        conn = sqlite3.connect(f"{folder}/{db_name_perm}.db")
+    def create_table_perm_ratings():
+        conn = sqlite3.connect(STARTREK_PERM_DB_PATH)
         c = conn.cursor()
         c.execute(
             """
-                CREATE TABLE IF NOT EXISTS most_rated
+                CREATE TABLE IF NOT EXISTS perm_ratings
                 (series text PRIMARY KEY, average_rating integer, number_of_ratings integer)
                 """
         )
         conn.commit()
         conn.close()
 
-    create_table_most_rated_obj = create_table_most_rated()
-    create_perm_db_obj >> create_table_most_rated_obj
+    create_table_perm_ratings_obj = create_table_perm_ratings()
+    create_perm_db_obj >> create_table_perm_ratings_obj
 
     @setup
-    def create_temp_db(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+    def create_temp_db():
+        conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
         conn.close()
 
     create_temp_db_obj = create_temp_db()
 
     @setup
     def create_table_star_trek_series(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+        conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
         c = conn.cursor()
         c.execute(
             """
@@ -99,8 +101,7 @@ def setup_teardown_complex_sqlite_decorators():
 
     @setup
     def create_table_ratings(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+        conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
         c = conn.cursor()
         c.execute(
             """
@@ -118,8 +119,16 @@ def setup_teardown_complex_sqlite_decorators():
         @task
         def fetch_data(**context):
             fail_fetch_data = context["params"]["fail_fetch_data"]
+            fetch_bad_data = context["params"]["fetch_bad_data"]
             if fail_fetch_data:
                 raise Exception("Oh no! The API to get Star Trek ratings is down!")
+            if fetch_bad_data:
+                return [
+                    ["user1", "TNG", 5],
+                    ["user1", "VOY", "There is coffee in that nebula!"],
+                    ["user2", "TOS", 5],
+                    ["user2", "TNG", 5],
+                ]
             return [
                 ["user1", "TNG", 5],
                 ["user1", "DS9", 5],
@@ -134,9 +143,8 @@ def setup_teardown_complex_sqlite_decorators():
             ]
 
         @setup
-        def insert_ratings_data(ratings_data, **context):
-            folder, db_name_temp, db_name_perm = get_params_helper(**context)
-            conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+        def insert_ratings_data(ratings_data):
+            conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
             c = conn.cursor()
             c.executemany("INSERT INTO ratings VALUES (?,?,?)", ratings_data)
             conn.commit()
@@ -144,10 +152,24 @@ def setup_teardown_complex_sqlite_decorators():
 
         insert_ratings_data_obj = insert_ratings_data(fetch_data())
 
+        data_quality_check = SQLColumnCheckOperator(
+            task_id="data_quality_check",
+            conn_id="sqlite_default",
+            table="ratings",
+            column_mapping={
+                "user": {"null_check": {"equal_to": 0}},
+                "series": {"null_check": {"equal_to": 0}},
+                "rating": {
+                    "null_check": {"equal_to": 0},
+                    "min": {"geq_to": 0},
+                    "max": {"leq_to": 5},
+                },
+            },
+        )
+
         @task
-        def update_star_trek_series(**context):
-            folder, db_name_temp, db_name_perm = get_params_helper(**context)
-            conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+        def update_star_trek_series():
+            conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
             c = conn.cursor()
             c.execute(
                 """
@@ -161,10 +183,9 @@ def setup_teardown_complex_sqlite_decorators():
         update_star_trek_series_obj = update_star_trek_series()
 
         @task
-        def insert_most_rated_series(**context):
-            folder, db_name_temp, db_name_perm = get_params_helper(**context)
-            conn_temp = sqlite3.connect(f"{folder}/{db_name_temp}.db")
-            conn_perm = sqlite3.connect(f"{folder}/{db_name_perm}.db")
+        def insert_into_perm(**context):
+            conn_temp = sqlite3.connect(STARTREK_TEMP_DB_PATH)
+            conn_perm = sqlite3.connect(STARTREK_PERM_DB_PATH)
 
             c_temp = conn_temp.cursor()
             c_perm = conn_perm.cursor()
@@ -172,19 +193,18 @@ def setup_teardown_complex_sqlite_decorators():
             c_temp.execute(
                 """SELECT series, AVG(rating), COUNT(rating) 
                 FROM ratings 
-                GROUP BY series 
-                ORDER BY COUNT(rating) DESC LIMIT 1"""
+                GROUP BY series"""
             )
             ratings_data = c_temp.fetchall()
 
-            fail_insert_most_rated_series = context["params"][
-                "fail_insert_most_rated_series"
+            fail_insert_perm_ratings_series = context["params"][
+                "fail_insert_into_perm_table"
             ]
-            if fail_insert_most_rated_series:
+            if fail_insert_perm_ratings_series:
                 raise Exception("Oh no! The data could not be inserted into the table!")
 
             c_perm.executemany(
-                "INSERT OR REPLACE INTO most_rated (series, average_rating, number_of_ratings) VALUES (?,?,?)",
+                "INSERT OR REPLACE INTO perm_ratings (series, average_rating, number_of_ratings) VALUES (?,?,?)",
                 ratings_data,
             )
 
@@ -194,12 +214,11 @@ def setup_teardown_complex_sqlite_decorators():
             conn_temp.close()
             conn_perm.close()
 
-        insert_most_rated_series_obj = insert_most_rated_series()
+        insert_into_perm_obj = insert_into_perm()
 
         @teardown
-        def empty_ratings_table(**context):
-            folder, db_name_temp, db_name_perm = get_params_helper(**context)
-            conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+        def empty_ratings_table():
+            conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
             c = conn.cursor()
 
             c.execute(f"DELETE FROM ratings")
@@ -210,9 +229,8 @@ def setup_teardown_complex_sqlite_decorators():
         empty_ratings_table_obj = empty_ratings_table()
 
         @teardown
-        def empty_series_table(**context):
-            folder, db_name_temp, db_name_perm = get_params_helper(**context)
-            conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+        def empty_series_table():
+            conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
             c = conn.cursor()
 
             c.execute(f"DELETE FROM star_trek_series")
@@ -227,8 +245,9 @@ def setup_teardown_complex_sqlite_decorators():
         # setting dependencies within the task group
         chain(
             insert_ratings_data_obj,
+            data_quality_check,
             update_star_trek_series_obj,
-            insert_most_rated_series_obj,
+            insert_into_perm_obj,
             [empty_ratings_table_obj, empty_series_table_obj],
             tables_empty,
         )
@@ -240,9 +259,8 @@ def setup_teardown_complex_sqlite_decorators():
     data_transformation_tg_obj = data_transformation()
 
     @teardown
-    def delete_temp_tables(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        conn = sqlite3.connect(f"{folder}/{db_name_temp}.db")
+    def delete_temp_tables():
+        conn = sqlite3.connect(STARTREK_TEMP_DB_PATH)
         c = conn.cursor()
         c.execute("DROP TABLE star_trek_series")
         c.execute("DROP TABLE ratings")
@@ -252,19 +270,17 @@ def setup_teardown_complex_sqlite_decorators():
     delete_temp_tables_obj = delete_temp_tables()
 
     @teardown
-    def delete_temp_db(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        os.remove(f"{folder}/{db_name_temp}.db")
+    def delete_temp_db():
+        os.remove(STARTREK_TEMP_DB_PATH)
 
     delete_temp_db_obj = delete_temp_db()
 
     @task
-    def query_perm(**context):
-        folder, db_name_temp, db_name_perm = get_params_helper(**context)
-        conn = sqlite3.connect(f"{folder}/{db_name_perm}.db")
+    def query_perm():
+        conn = sqlite3.connect(STARTREK_PERM_DB_PATH)
         c = conn.cursor()
         r = c.execute(
-            "SELECT AVG(average_rating), SUM(number_of_ratings) FROM most_rated"
+            "SELECT AVG(average_rating), SUM(number_of_ratings) FROM perm_ratings"
         )
         re = r.fetchall()
         print(
@@ -280,7 +296,7 @@ def setup_teardown_complex_sqlite_decorators():
         delete_temp_db_obj,
         query_perm(),
     )
-    create_table_most_rated_obj >> data_transformation_tg_obj
+    create_table_perm_ratings_obj >> data_transformation_tg_obj
 
     [
         create_table_ratings_obj,

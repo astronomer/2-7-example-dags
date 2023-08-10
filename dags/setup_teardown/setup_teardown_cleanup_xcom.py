@@ -3,6 +3,12 @@
 
 This DAG will draw cards for two players (and also shows how to use a teardown task 
 to clean up XComs after the DAG has finished running).
+
+This DAG works with a custom XCom backend and needs: 
+- the environment variable `XCOM_BACKEND_AWS_CONN_ID` set to `aws_default`
+- a connection to S3 with the connection id `aws_default`
+- the environment variable `XCOM_BACKEND_BUCKET_NAME` set to the name of an S3 bucket.
+- the environment variable `AIRFLOW__CORE__XCOM_BACKEND` set to `include.custom_xcom_backend.s3_xcom_backend.CustomXComBackendS3`
 """
 
 from airflow.decorators import dag, task
