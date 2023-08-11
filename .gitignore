@@ -1,0 +1,9 @@
+.git
+.env
+.DS_Store # macOS specific ignore
+airflow_settings.yaml
+__pycache__/
+astro
+*DS_Store
+include/startrek_perm.db
+screenshot_dags

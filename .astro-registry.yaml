@@ -1,0 +1,12 @@
+# These categories will be applied to all DAGs in the repo.
+categories:
+  - Airflow Fundamentals
+# List of DAGs that should be published to the Astronomer Registry.
+dags:
+  - path: dags/toy_chain_linear_task_group.py
+  - path: dags/toy_chain_linear_vs_chain_complex.py
+  - path: dags/toy_apprise_provider_example.py
+  - path: dags/toy_fail_stop.py
+  - path: dags/setup_teardown_cleanup_xcom.py
+  - path: dags/setup_teardown_complex_sqlite_decorators.py
+  - path: dags/setup_teardown_csv_decorators.py
