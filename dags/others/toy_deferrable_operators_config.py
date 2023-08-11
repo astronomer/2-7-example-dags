@@ -14,7 +14,7 @@ from pendulum import datetime
     start_date=datetime(2023, 8, 1),
     schedule=None,
     catchup=False,
-    tags=["deferrable", "toy"],
+    tags=["deferrable", "toy", "core"],
 )
 def toy_deferrable_operators_config():
     trigger_dag_run = TriggerDagRunOperator(
@@ -22,7 +22,7 @@ def toy_deferrable_operators_config():
         trigger_dag_id="helper_dag_wait_30_seconds",
         wait_for_completion=True,
         poke_interval=20,
-        # deferrable=True,  # if not set at the DAG level, will use the config
+        # deferrable=False,  # if not set at the DAG level, will use the config
     )
 
     @task

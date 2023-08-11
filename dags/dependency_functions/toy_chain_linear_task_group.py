@@ -16,7 +16,7 @@ from airflow.utils.task_group import TaskGroup
     start_date=datetime(2023, 8, 1),
     schedule=None,
     catchup=False,
-    tags=["TaskGroup", "@task_group", "chain_linear()", "dependency_functions", "toy"],
+    tags=["TaskGroup", "@task_group", "chain_linear()", "dependency_functions", "toy", "core"],
 )
 def toy_chain_linear_task_group():
     t1_traditional = EmptyOperator(task_id="t1_traditional")

@@ -31,7 +31,7 @@ def get_params_helper(**context):
         "cols": ["id", "name", "age"],
         "fetch_bad_data": Param(False, type="boolean"),
     },
-    tags=["helper"],
+    tags=["helper", "core"],
 )
 def setup_teardown_csv_NO_setup_teardown():
     @task

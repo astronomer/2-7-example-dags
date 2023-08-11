@@ -1,7 +1,7 @@
 """
-## Toy DAG to show a simple setup/teardown grouping
+## Toy DAG to show a simple setup/teardown workflow
 
-This DAG shows a simple setup/teardown grouping pipeline with mock tasks.
+This DAG shows a simple setup/teardown workflow pipeline with mock tasks.
 """
 
 from airflow.decorators import dag, task
@@ -12,7 +12,7 @@ from pendulum import datetime
     start_date=datetime(2023, 8, 1),
     schedule=None,
     catchup=False,
-    tags=["setup/teardown", "toy"],
+    tags=["setup/teardown", "toy", "core"],
 )
 def toy_setup_teardown_simple():
     @task

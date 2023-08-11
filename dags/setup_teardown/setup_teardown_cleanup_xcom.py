@@ -1,10 +1,11 @@
 """
 ## Play Texas Hold'em Poker with Airflow
 
-This DAG will draw cards for two players (and also shows how to use a teardown task 
+This DAG will draw cards for two players (and also show how to use a teardown task 
 to clean up XComs after the DAG has finished running).
 
-This DAG works with a custom XCom backend and needs: 
+This DAG works with a custom XCom backend and needs:
+
 - the environment variable `XCOM_BACKEND_AWS_CONN_ID` set to `aws_default`
 - a connection to S3 with the connection id `aws_default`
 - the environment variable `XCOM_BACKEND_BUCKET_NAME` set to the name of an S3 bucket.
@@ -21,6 +22,7 @@ import requests
 
 
 def draw_cards(deck_id, number):
+    """Draws a number of cards from a deck."""
     cards = []
     for i in range(number):
         r = requests.get(f"https://deckofcardsapi.com/api/deck/{deck_id}/draw/?count=1")
@@ -30,7 +32,7 @@ def draw_cards(deck_id, number):
 
 @dag(
     start_date=datetime(2023, 8, 1),
-    schedule=None,
+    schedule="@daily",
     catchup=False,
     render_template_as_native_obj=True,
     tags=[".as_teardown()", "setup/teardown", "deferrable"],
@@ -84,9 +86,10 @@ def setup_teardown_cleanup_xcom():
 
     cards_player_1 >> cards_player_2 >> cards_on_table
 
-    (
-        evaluate_cards(cards_player_1, cards_player_2, cards_on_table) >> clean_up_xcom
-    ).as_teardown(
+    cards_evaluated = evaluate_cards(cards_player_1, cards_player_2, cards_on_table)
+
+    # define setup/ teardown and their workflow
+    cards_evaluated >> clean_up_xcom.as_teardown(
         setups=[shuffle_cards, cards_player_1, cards_player_2, cards_on_table]
     )
 

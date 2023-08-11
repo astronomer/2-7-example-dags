@@ -13,7 +13,7 @@ import time
     start_date=datetime(2023, 8, 1),
     schedule=None,
     catchup=False,
-    tags=["deferrable", "toy"],
+    tags=["deferrable", "toy", "core"],
 )
 def helper_dag_wait_30_seconds():
     @task

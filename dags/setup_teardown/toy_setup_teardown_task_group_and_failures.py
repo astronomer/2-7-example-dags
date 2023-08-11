@@ -1,7 +1,7 @@
 """
-## Toy DAG to selectively fail different elements in a setup/teardown grouping
+## Toy DAG to selectively fail different elements in a setup/teardown workflow
 
-Use params to fail tasks in this DAG and examine bahavior. This DAG also demonstrates
+Use params to fail tasks in this DAG and examine behavior. This DAG also demonstrates
 task group teardown dependency behavior, how the DAG run is marked successful by
 default even if the final teardown task fails and `on_failure_fail_dagrun`.
 """
@@ -12,7 +12,7 @@ from airflow.models.param import Param
 
 
 @dag(
-    start_date=datetime(2023, 7, 1),
+    start_date=datetime(2023, 8, 1),
     schedule=None,
     catchup=False,
     params={
@@ -26,7 +26,7 @@ from airflow.models.param import Param
         "fail_teardown_2": Param(False, type="boolean"),
         "fail_final_teardown": Param(False, type="boolean"),
     },
-    tags=[".is_teardown()", "setup/teardown", "@task_group", "toy"],
+    tags=[".is_teardown()", "setup/teardown", "@task_group", "toy", "core"],
 )
 def toy_setup_teardown_task_group_and_failures():
     @task_group

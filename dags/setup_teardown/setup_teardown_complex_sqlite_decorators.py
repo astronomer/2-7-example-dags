@@ -1,10 +1,10 @@
 """
-## Use setup/teardown in a complex example with three nested setup/teardown groupings
+## Use setup/teardown in a complex example with three nested setup/teardown workflows
 
 DAG that creates a permanent and temporary SQLite database, fetches data, 
-inserts it and then cleans up after itself. Also shows that multiple setup/teardown tasks can be in a grouping.
+inserts it and then cleans up after itself. Also shows that multiple setup/teardown tasks can be in a workflow.
 
-Setup/teardown groupings:
+Setup/teardown workflows:
 1. Outer: Create temporary database -> delete temporary database (1 setup, 1 teardown)
 2. Middle: Create tables in the temporary database -> delete tables in temporary database (2 setup, 1 teardown)
 3. Inner: Insert data into tables in the temporary database -> empty tables in the temporary database (1 setup, 2 teardown)
@@ -32,13 +32,13 @@ STARTREK_PERM_DB_PATH = "include/startrek_perm.db"
 
 @dag(
     start_date=datetime(2023, 7, 1),
-    schedule=None,
+    schedule="@daily",
     catchup=False,
     params={
         "fail_fetch_data": Param(
             False,
             type="boolean",
-            description="This param simulates a failure in fetching data, like an API being down in the middle setup/teardown grouping.",
+            description="This param simulates a failure in fetching data, like an API being down in the middle setup/teardown workflow.",
         ),
         "fetch_bad_data": Param(
             False,
@@ -48,7 +48,7 @@ STARTREK_PERM_DB_PATH = "include/startrek_perm.db"
         "fail_insert_into_perm_table": Param(
             False,
             type="boolean",
-            description="This param simulates a failure in inserting data into the permanent ratings table in the inner setup/teardown grouping.",
+            description="This param simulates a failure in inserting data into the permanent ratings table in the inner setup/teardown workflow.",
         ),
     },
     tags=["@setup", "@teardown", "setup/teardown"],
@@ -304,7 +304,7 @@ def setup_teardown_complex_sqlite_decorators():
     ] >> delete_temp_tables_obj
 
     # setting dependencies between the three setup task and its teardown task
-    # creating the outer setup/teardown grouping
+    # creating the outer setup/teardown workflow
     create_temp_db_obj >> delete_temp_db_obj
 
 

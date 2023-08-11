@@ -1,5 +1,5 @@
 """
-## Toy DAG to show the fail_stop DAG argument
+## Use the fail_stop parameter to stop a DAG run when any task in it fails
 
 This DAG has fail stop enabled and a task that always fails showing how
 tasks that are still running are marked as failed, tasks that have not run yet
@@ -16,7 +16,7 @@ import time
     schedule=None,
     catchup=False,
     fail_stop=True,
-    tags=["fast_stop", "toy"],
+    tags=["fast_stop", "toy", "core"],
 )
 def toy_fail_stop():
     @task

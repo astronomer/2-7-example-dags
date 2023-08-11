@@ -1,5 +1,5 @@
 """
-## Nest an outer and inner setup/teardown grouping
+## Nest an outer and inner setup/teardown workflow
 
 Syntax DAG showing nested setup/teardown tasks.
 """
@@ -17,7 +17,7 @@ from airflow.models.param import Param
         "fail_outer_worker_1": Param(False, type="boolean"),
         "fail_inner_worker_1": Param(False, type="boolean"),
     },
-    tags=[".is_teardown()", "setup/teardown", "toy"],
+    tags=[".is_teardown()", "setup/teardown", "toy", "core"],
 )
 def toy_setup_teardown_nesting():
     @task
