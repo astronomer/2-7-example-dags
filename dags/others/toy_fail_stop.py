@@ -16,7 +16,7 @@ import time
     schedule=None,
     catchup=False,
     fail_stop=True,
-    tags=["fast_stop", "toy", "core"],
+    tags=["fail_stop", "toy", "core"],
 )
 def toy_fail_stop():
     @task
